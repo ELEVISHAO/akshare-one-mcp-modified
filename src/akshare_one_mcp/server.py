@@ -143,7 +143,7 @@ def get_hist_data(
         for indicator in indicators_list:
             if indicator in indicator_map:
                 func, params = indicator_map[indicator]
-                indicator_df = func(df, **params)
+                indicator_df = func(df, **params)  # type: ignore[arg-type]
                 temp.append(indicator_df)
         if temp:
             df = df.join(temp)

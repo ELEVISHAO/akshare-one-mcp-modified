@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def create_streamable_http_app():
     app = mcp.http_app()
     app.add_middleware(
-        CORSMiddleware,
+        CORSMiddleware,  # type: ignore[arg-type]
         allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS"],
