@@ -226,6 +226,43 @@ def get_news_data(
 
 
 @mcp.tool
+def get_lhb_detail(
+    start_date: Annotated[
+        str, Field(description="Start date in YYYYMMDD format, e.g. '20260301'")
+    ],
+    end_date: Annotated[
+        str, Field(description="End date in YYYYMMDD format, e.g. '20260330'")
+    ],
+    recent_n: Annotated[
+        int | None, Field(description="Number of most recent records to return", ge=1)
+    ] = 100,
+) -> str:
+    """Get 龙虎榜明细数据（区间）。"""
+    df = ak.stock_lhb_detail_em(start_date=start_date, end_date=end_date)
+    if recent_n is not None:
+        df = df.tail(recent_n)
+    return df.to_json(orient="records") or "[]"
+
+
+@mcp.tool
+def get_lhb_stock_detail(
+    symbol: Annotated[str, Field(description="Stock symbol/ticker (e.g. '000788')")],
+    date: Annotated[str, Field(description="Date in YYYYMMDD format, e.g. '20260330'")],
+    flag: Annotated[
+        Literal["买入", "卖出"], Field(description="龙虎榜方向：买入 or 卖出")
+    ] = "买入",
+    recent_n: Annotated[
+        int | None, Field(description="Number of most recent records to return", ge=1)
+    ] = 100,
+) -> str:
+    """Get 个股龙虎榜席位明细（指定日期/方向）。"""
+    df = ak.stock_lhb_stock_detail_em(symbol=symbol, date=date, flag=flag)
+    if recent_n is not None:
+        df = df.tail(recent_n)
+    return df.to_json(orient="records") or "[]"
+
+
+@mcp.tool
 def get_balance_sheet(
     symbol: Annotated[str, Field(description="Stock symbol/ticker (e.g. '000001')")],
     recent_n: Annotated[
