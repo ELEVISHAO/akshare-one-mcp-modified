@@ -33,7 +33,7 @@ def get_hist_data(
     source: Annotated[
         Literal["eastmoney", "eastmoney_direct", "sina"],
         Field(description="Data source"),
-    ] = "eastmoney",
+    ] = "eastmoney_direct",
     indicators_list: Annotated[
         list[
             Literal[
@@ -81,15 +81,37 @@ def get_hist_data(
     ] = 100,
 ) -> str:
     """Get historical stock market data. 'eastmoney_direct' support all A,B,H shares"""
-    df = ako.get_hist_data(
-        symbol=symbol,
-        interval=interval,
-        interval_multiplier=interval_multiplier,
-        start_date=start_date,
-        end_date=end_date,
-        adjust=adjust,
-        source=source,
-    )
+    # Stability-first fallback sequence:
+    # eastmoney_direct -> sina -> eastmoney
+    # Keep the MCP tool resilient in unstable network environments.
+    fallback_sources: list[str] = ["eastmoney_direct", "sina", "eastmoney"]
+    last_err: Exception | None = None
+    df = None
+
+    for src in fallback_sources:
+        try:
+            candidate = ako.get_hist_data(
+                symbol=symbol,
+                interval=interval,
+                interval_multiplier=interval_multiplier,
+                start_date=start_date,
+                end_date=end_date,
+                adjust=adjust,
+                source=src,
+            )
+            if candidate is not None and not candidate.empty:
+                df = candidate
+                break
+            last_err = ValueError(f"Empty hist data returned for source={src}")
+        except Exception as e:
+            last_err = e
+            continue
+
+    if df is None or df.empty:
+        raise ValueError(
+            f"All hist data sources failed for symbol={symbol}, "
+            f"range={start_date}~{end_date}. Last error: {last_err}"
+        ) from last_err
     if indicators_list:
         indicator_map = {
             "SMA": (indicators.get_sma, {"window": 20}),
@@ -163,7 +185,29 @@ def get_realtime_data(
     ] = "eastmoney_direct",
 ) -> str:
     """Get real-time stock market data. 'eastmoney_direct' support all A,B,H shares"""
-    df = ako.get_realtime_data(symbol=symbol, source=source)
+    # Stability-first fallback sequence:
+    # eastmoney_direct -> xueqiu -> eastmoney
+    # Keep the MCP tool resilient in unstable network environments.
+    fallback_sources: list[str] = ["eastmoney_direct", "xueqiu", "eastmoney"]
+    last_err: Exception | None = None
+    df = None
+
+    for src in fallback_sources:
+        try:
+            candidate = ako.get_realtime_data(symbol=symbol, source=src)
+            if candidate is not None and not candidate.empty:
+                df = candidate
+                break
+            last_err = ValueError(f"Empty realtime data returned for source={src}")
+        except Exception as e:
+            last_err = e
+            continue
+
+    if df is None or df.empty:
+        raise ValueError(
+            f"All realtime data sources failed for symbol={symbol}. Last error: {last_err}"
+        ) from last_err
+
     return df.to_json(orient="records") or "[]"
 
 
